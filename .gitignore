@@ -104,3 +104,8 @@ InitTestScene*.unity*
 
 # Auto-generated cache in Assets folder
 /[Aa]ssets/[Ss]ceneDependencyCache*
+
+# Ignoriert temporäre Build-Dateien und generierte Artefakten
+# Hinzugefügt am 08.07.2026
+/Library/Artifacts/
+/Library/ArtifactDB/
