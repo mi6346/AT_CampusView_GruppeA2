@@ -8,96 +8,196 @@ using UnityEngine.UI;
 public class SkyBoxManager : MonoBehaviour
 {
     // Attribute
+    
+    // ==============================
+    // Skybox
+    // ==============================
+
+    // Material mit dem eigenen Skybox-Shader
     public Material skyboxMaterial;
-    
-    public string startPosition = "07";                             // Start-Position
-    private string currentPosition;                                 // Aktuelle Position
-    
-    public float fadeDuration = 2f;                                 // Dauer des Fades (in Sekunden)
-    
-    public PositionImporter positionImporter;                       // Ermöglicht das Importieren des GameObjects "PositionImporter"
-    private List<PositionImporter.PositionEntry> currentTargets;    // Liste, die alle Positionen, die von der aktuellen Position erreichbar sind
-    private string imagePath;
-    
-    private float currentRotation;
-    private float targetRotation;
 
+    // Dauer der Überblendung zwischen zwei Panoramen
+    public float fadeDuration = 2f;
+
+    // Angabe, ob momentan bereits eine Überblendung läuft
+    private bool isFading = false;
+
+    
+    // ==============================
+    // Positionen
+    // ==============================
+    
+    // Start-Position aus der positions.txt
+    public string startPosition = "07";
+    
+    // Position, an der sich der Benutzer momentan befindet
+    private string currentPosition;
+
+    // Alle von der aktuellen Position erreichbaren Ziele
+    private List<PositionImporter.PositionEntry> currentTargets;
+    
+    // Momentan ausgewähltes Ziel
     private PositionImporter.PositionEntry selectedTarget;
+    
+    // Importer für die positions.txt
+    public PositionImporter positionImporter;
 
-    public Transform cameraTransform;                               // Speicherung des Kamerawinkels
+    //
+    private PositionImporter.PositionEntry previousTarget;
 
+    //
+    private Texture2D targetPanorama;
+    
+    
+    // ==============================
+    // Bilder
+    // ==============================
+
+    // Dateipfad des aktuell geladenen Panoramas
+    private string imagePath;
+
+
+    // ==============================
+    // Kamera
+    // ==============================
+    
+    // Referenz auf die Main Camera
+    public Transform cameraTransform;
+
+
+    // Maximale Abweichung (± Grad), damit ein Ziel als getroffen gilt
+    public float hotspotTolerance = 3f;
+    
+
+    // ==============================
+    // UI
+    // ==============================
+    
+    // Fadenkreuz in der Bildschirm-Mitte
     public Image recticle;
 
-    public float hotspotTolerance = 3f;                             // Definition des (plus-minus) Toleranzbereichs
-
+    
+    // Methoden
+    
     void Start()
     {
-        // Start-Überblendwert
+        // Start-Überblendwert: Zu Beginn wird keine Überblendung angezeigt.
         skyboxMaterial.SetFloat("_Blend", 0f);
 
-        // Initialisierung der aktuellen Position zum Start
+        // Initialisierung der Start-Position: Die Anwendung startet an der festgelegten Position.
         currentPosition = startPosition;
 
-        // Position laden
-        StartCoroutine(InitializePositionData());
-
+        // Der Recticle soll zunächst unsichtbar sein.
         recticle.enabled = false;
+        
+        // Position laden: Erst nachdem die Daten geladen werden, wird die erste Position angezeigt.
+        StartCoroutine(InitializePositionData());
     }
 
     void Update()
     { 
-        if (Keyboard.current.spaceKey.wasPressedThisFrame && selectedTarget != null && IsTargetVisible())
+        // -----------------------------
+        // Zielposition bestimmen
+        // -----------------------------
+        
+        UpdateSelectedTarget();
+        
+        // -----------------------------
+        // Recticle anzeigen
+        // -----------------------------
+
+        recticle.enabled = (selectedTarget != null);
+
+        // -----------------------------
+        // Übergang starten
+        // -----------------------------
+
+        if (Keyboard.current.spaceKey.wasPressedThisFrame && 
+            selectedTarget != null &&
+            !isFading
+            )
         {
             StartCoroutine(FadeRoutine());
         }
-
-        // Überprüfung, welches Ziel ausgewählt werden soll
-        UpdateSelectedTarget();
-        
-        // Debugging: Ausführen des Quellcode-Teils beim Drücken der T-Taste 
-        // Wenn überhaupt ein Ziel existiert, kann das Recticle angezeigt werden.
-        recticle.enabled = (selectedTarget != null);
-
-        if (selectedTarget != null)
-        {
-            Debug.Log("Aktuelles Ziel: " + selectedTarget.id2);
-        }
-
-        if (Keyboard.current.tKey.wasPressedThisFrame)
-        {
-            Debug.Log("Kamera: " + cameraTransform.eulerAngles.y);
-            Debug.Log("Ziel: " + currentRotation);
-            Debug.Log("Differenz: " + Mathf.Abs(Mathf.DeltaAngle(cameraTransform.eulerAngles.y, currentRotation)));
-        }
     }
 
-    // Methode zur Erstellung eines flüssigen Übergangs (Schrittweise Erhöhung des Blend-Werts)
+    
+    // ==============================
+    // Methode: Ausführung einer Überblendung zwischen zwei Panoramen
+    // ==============================
+
     private IEnumerator FadeRoutine()
     {
+        // Verhindert mehrere gleichzeitige Überblendungen
+        isFading = true;
+
+        // Ziel vor der Schleife speichern: Während der ganzen überblendung
+        // werden Start- und Zielwinkel gemerkt.
+        PositionImporter.PositionEntry target = selectedTarget;
+
+        // Kamerawinkel zum Zeitpunkt des Tastendrucks merken.
+        float cameraAngleAtStart = cameraTransform.eulerAngles.y;
+        
+        // Berechnung für das Zielbild (_Tex2) berechnen
+        float rotationOffset = Mathf.DeltaAngle(cameraAngleAtStart, target.rotate2);
+        
+        // Zielbild ausgleichen
+        skyboxMaterial.SetFloat("_Rotation2", rotationOffset);
+
+        // Quellbild bleibt unverändert
+        skyboxMaterial.SetFloat("_Rotation1", 0f);
+        
         float elapsed = 0f;
 
         while (elapsed < fadeDuration)
         {
             elapsed += Time.deltaTime;
             float blend = Mathf.Clamp01(elapsed / fadeDuration);
-            skyboxMaterial.SetFloat("_Blend", blend);
+            skyboxMaterial.SetFloat("_Blend", blend); // Bild-Überblendung wie bisher
             yield return null;
         }
 
         // Überblendung abgeschlossen
         skyboxMaterial.SetFloat("_Blend", 1f);
 
-        // Aktuelle Position wird zur Zielposition
-        currentPosition = selectedTarget.id2;
+        // Neue Position übernehmen
+        currentPosition = target.id2;
+
+        // Kamera auf den Zielwinkel setzen
+        cameraTransform.eulerAngles = new Vector3(
+            cameraTransform.eulerAngles.x,
+            target.rotate2,
+            cameraTransform.eulerAngles.z
+        );
 
         // Neue Position vollständig laden
         ShowPosition(currentPosition);
+
+        // Kamera auf den Zielwinkel drehen
+        cameraTransform.eulerAngles = new Vector3(
+            cameraTransform.eulerAngles.x,
+            target.rotate2,
+            cameraTransform.eulerAngles.z
+        );
+
+        // Offsets zurücksetzen
+        skyboxMaterial.SetFloat("_Rotation1", 0f);
+        skyboxMaterial.SetFloat("_Rotation2", 0f);
+        
+        UpdateSelectedTarget();
+
+        // Überblendung beendet
+        isFading = false;
 
         // Debugging
         Debug.Log("Neue Position: " + currentPosition);
     }
 
-    // Bild über angegebenen Dateipfad laden und als Texture2D zurückgeben
+    
+    // ==============================
+    // Methode: Bild über angegebenen Dateipfad laden und als Texture2D zurückgeben
+    // ==============================
+
     private Texture2D LoadTextureFromFile(string path)
     {
         // Überprüfung: "Existiert die Datei überhaupt?"
@@ -111,7 +211,8 @@ public class SkyBoxManager : MonoBehaviour
         // JPG-Dateien bestehen intern aus Bytes, die dann in eine Unity-Textur umgewandelt werden.
         byte[] imageData = File.ReadAllBytes(path);
 
-        // Erstellung einer neuen leeren Texture2D
+        // Erstellung einer leeren Unity-Textur
+        // (Die tatsächlichen Bild-Daten werden anschließend geladen.)
         Texture2D texture = new Texture2D(2, 2);
 
         // Konvertierung der Bild-Daten in eine verwendbare Unity-Textur
@@ -131,9 +232,11 @@ public class SkyBoxManager : MonoBehaviour
     {
         currentPosition = positionId;
 
+        // -----------------------------
+        // Positionsdaten laden
+        // -----------------------------
+        
         currentTargets = positionImporter.GetEntriesFor(currentPosition);
-
-        Debug.Log("Erreichbare Ziele: ");
 
         foreach (var entry in currentTargets)
         {
@@ -147,19 +250,12 @@ public class SkyBoxManager : MonoBehaviour
             return;
         }
 
-        selectedTarget = null;
-
-        // Speicherung der Rotationswerte
-        PositionImporter.PositionEntry nextEntry = currentTargets[0];
-
-        currentRotation = nextEntry.rotate1;
-        targetRotation = nextEntry.rotate2;
-
-        // Übergabe der Rotationswerte an den Shader
-        skyboxMaterial.SetFloat("_Rotation1", currentRotation);
-        skyboxMaterial.SetFloat("_Rotation2", targetRotation);
-        
+        // -----------------------------
         // Aktuelles Panorama laden
+        // -----------------------------
+
+        selectedTarget = null;
+        previousTarget = null;
 
         // Erstellung des vollständigen Dateipfads zum Panoramas
         // (z.B. Assets/Images/07.jpg)
@@ -175,21 +271,10 @@ public class SkyBoxManager : MonoBehaviour
             skyboxMaterial.SetTexture("_Tex1", currentPanorama);
         }
 
-
-        // Zielpanorama laden
-
-        // Erstellung des vollständigen Dateipfads zum Panoramas 
-        // (z.B. Assets/Images/10.jpg)
-        string targetImagePath = Path.Combine(Application.dataPath, "Images", nextEntry.id2 + ".jpg");
-
-        // Dateipfad des Ziel-Panoramas erzeugen
-        Texture2D targetPanorama = LoadTextureFromFile(targetImagePath);
-
-        if (targetPanorama != null)
-        {
-            skyboxMaterial.SetTexture("_Tex2", targetPanorama);
-        }
-
+        // -----------------------------
+        // Skybox zurücksetzen
+        // -----------------------------
+        
         // Übergabe des geladenen Ziel-Panromas an den Shader an die SkyBox
         skyboxMaterial.SetFloat("_Blend", 0f);
 
@@ -197,30 +282,46 @@ public class SkyBoxManager : MonoBehaviour
         Debug.Log($"Position {currentPosition} geladen.");
     }
     
-    // Hilfsmethode
-    private bool IsTargetVisible()
+    // ==============================
+    // Methode: Überprüfung, ob die Kamera sich innerhalb des zulässigen Bereichs befindet.
+    // (Liegt der Kamerawinkel innerhalb von ±hotspotTolerance, gilt das Ziel als sichtbar.)
+    // ==============================
+
+    /* private bool IsTargetVisible()
     {
+        
         float cameraAngle = Mathf.DeltaAngle(0f, cameraTransform.eulerAngles.y);
         
         return Mathf.Abs(cameraAngle) <= hotspotTolerance;
-    }
+    }*/
 
-    // Sucht die Zielposition, die momentan ausgewählt werden soll
+    // ==============================
+    // Methode: Durchläuft alle erreichbaren Zielpositionen und bestimmt,
+    // welche Zielposition moment der Blickrichtung der Kamera am nächsten liegt.
+    // ==============================
+    
     private void UpdateSelectedTarget()
     {
-        // Zunächst kein Ziel ausgewählt
         selectedTarget = null;
 
-        float cameraAngle = cameraTransform.eulerAngles.y;
+        if (currentTargets == null || currentTargets.Count == 0)
+        {
+            return;
+        }
+
         float smallestDifference = float.MaxValue;
 
-        // Alle erreichbaren Zielpositionen durchlaufen
+        // Einmal berechnen statt in jeder Runde neu
+        float cameraAngle = cameraTransform.eulerAngles.y;
+
         foreach (var target in currentTargets)
         {
-            // Winkel zwischen Kamera und Ziel berechnen
-            float difference = Mathf.Abs(Mathf.DeltaAngle(cameraAngle, target.rotate1));
 
-            // Das bisher beste Ziel merken
+            float difference = Mathf.Abs(
+                Mathf.DeltaAngle(cameraAngle, target.rotate1)
+            );
+
+            // Das momentan beste Ziel merken
             if (difference < smallestDifference)
             {
                 smallestDifference = difference;
@@ -228,10 +329,38 @@ public class SkyBoxManager : MonoBehaviour
             }
         }
 
-        if (smallestDifference > 5f)
+        // Liegt kein Übergang innerhalb der Toleranz, wird kein Ziel ausegwählt.
+        if (smallestDifference > hotspotTolerance)
         {
             selectedTarget = null;
+            return;
         }
+
+        // -----------------------------
+        // Zielbild vorbereiten.
+        // -----------------------------
+
+        string targetImagePath = Path.Combine(
+            Application.dataPath, "Images", selectedTarget.id2 + ".jpg"
+        );
+
+        if (selectedTarget != previousTarget)
+        {
+            targetPanorama = LoadTextureFromFile(targetImagePath);
+            skyboxMaterial.SetTexture("_Tex2", targetPanorama);
+            previousTarget = selectedTarget;
+        }
+
+        // -----------------------------
+        // Debugging
+        // -----------------------------
+
+        Debug.Log(
+            $"{selectedTarget.id1}->{selectedTarget.id2}" +
+            $"  Kamera={cameraAngle}" +
+            $"  rotate1={selectedTarget.rotate1}" +
+            $"  diff={smallestDifference}"
+        );
     }
     
     private IEnumerator InitializePositionData()
@@ -239,6 +368,13 @@ public class SkyBoxManager : MonoBehaviour
         // Einen Frame warten, damit der PositionImporter Zeit hat, seine Coroutine zu beenden.
         yield return null;
 
-        ShowPosition(currentPosition);
+        currentTargets = positionImporter.GetEntriesFor(currentPosition);
+
+        previousTarget = null;
+        
+        if (currentTargets.Count > 0)
+        {
+            ShowPosition(currentPosition);
+        }
     }
 }

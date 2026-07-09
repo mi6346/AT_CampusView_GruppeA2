@@ -28,11 +28,5 @@ public class CameraController : MonoBehaviour
         }
 
         transform.Rotate(0, horizontal * rotationSpeed * Time.deltaTime, 0);
-
-        // Debugging
-        if (horizontal != 0)
-        {
-            Debug.Log("Kamera wird gedreht");
-        }
     }
 }
