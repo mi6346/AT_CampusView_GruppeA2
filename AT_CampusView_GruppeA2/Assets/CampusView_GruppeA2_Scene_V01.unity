@@ -209,6 +209,7 @@ GameObject:
   - component: {fileID: 639610948}
   - component: {fileID: 639610947}
   - component: {fileID: 639610946}
+  - component: {fileID: 639610949}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -283,13 +284,26 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 639610945}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 1, z: -10}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 0}
+  m_Father: {fileID: 1963680486}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &639610949
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 639610945}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 16a66060eacdc544e922bc19ecd833cb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CameraController
+  rotationSpeed: 50
 --- !u!1 &642356218
 GameObject:
   m_ObjectHideFlags: 0
@@ -672,10 +686,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::SkyBoxManager
   skyboxMaterial: {fileID: 2100000, guid: cbb8f6920c3373849960b46fa628e29d, type: 2}
   startPosition: 07
-  startTexture: {fileID: 2800000, guid: 2ff0795f18672af42ae85e5cbf92c515, type: 3}
-  targetTexture: {fileID: 2800000, guid: 4b111cfb3440fb84ab1d3fa397b15265, type: 3}
   fadeDuration: 2
   positionImporter: {fileID: 642356219}
+  cameraTransform: {fileID: 639610948}
+  recticle: {fileID: 995498981}
+  hotspotTolerance: 5
 --- !u!4 &1963680486
 Transform:
   m_ObjectHideFlags: 0
@@ -688,14 +703,14 @@ Transform:
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
-  m_Children: []
+  m_Children:
+  - {fileID: 639610948}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
   m_Roots:
-  - {fileID: 639610948}
   - {fileID: 1546951790}
   - {fileID: 837070141}
   - {fileID: 1646468705}

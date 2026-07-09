@@ -437,6 +437,7 @@
 "Assets/Script/CameraController.cs"
 "Assets/Script/PositionImporter.cs"
 "Assets/Script/SkyBoxManager.cs"
+"Assets/Script/unnoetig.cs"
 -langversion:9.0
 /deterministic
 /optimize+
