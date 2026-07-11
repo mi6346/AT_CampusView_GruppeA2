@@ -4,6 +4,7 @@ using System.IO;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
+using UnityEngine.Networking;
 
 public class SkyBoxManager : MonoBehaviour
 {
@@ -76,6 +77,14 @@ public class SkyBoxManager : MonoBehaviour
     // Fadenkreuz in der Bildschirm-Mitte
     public Image recticle;
 
+
+    // ==============================
+    // UI
+    // ==============================
+
+    // AudioSource-Komponente am selben GameObject für Loop-Sound pro Position
+    private AudioSource audioSource;
+
     
     // Methoden
     
@@ -89,6 +98,9 @@ public class SkyBoxManager : MonoBehaviour
 
         // Der Recticle soll zunächst unsichtbar sein.
         recticle.enabled = false;
+
+        // AudioSource-Komponente am gleichen GameObject holen
+        audioSource = GetComponent<AudioSource>();
         
         // Position laden: Erst nachdem die Daten geladen werden, wird die erste Position angezeigt.
         StartCoroutine(InitializePositionData());
@@ -112,7 +124,7 @@ public class SkyBoxManager : MonoBehaviour
         // Übergang starten
         // -----------------------------
 
-        if (Keyboard.current.spaceKey.wasPressedThisFrame && 
+        if (Keyboard.current.upArrowKey.wasPressedThisFrame && 
             selectedTarget != null &&
             !isFading
             )
@@ -227,6 +239,40 @@ public class SkyBoxManager : MonoBehaviour
         
         return null;
     }
+
+    // ==============================
+    // Methode: Lädt die zur Position gehörende Audiodatei und spielt sie im Loop ab
+    // ==============================
+
+    private IEnumerator LoadAndPlayAudio(string positionId)
+    {
+        // Pfad zur Audiodatei zusammensetzen (z.B. .../Audio/07.wav)
+        string audioPath = Path.Combine(Application.dataPath, "Audio", positionId + ".wav");
+
+        // Für UnityWebRequest wird ein "file://"-URL benötigt, kein normaler Pfad
+        string url = "file://" + audioPath;
+
+        using (UnityWebRequest request = UnityWebRequestMultimedia.GetAudioClip(url, AudioType.WAV))
+        {
+            // Warten, bis die Datei geladen ist (asynchron, blockiert das Spiel nicht)
+            yield return request.SendWebRequest();
+
+            if (request.result == UnityWebRequest.Result.Success)
+            {
+                AudioClip clip = DownloadHandlerAudioClip.GetContent(request);
+
+                // Vorheriges Audio stoppen, bevor das neue gestartet wird
+                audioSource.Stop();
+                audioSource.clip = clip;
+                audioSource.loop = true; // Soll dauerhaft im Loop laufen
+                audioSource.Play();
+            }
+            else
+            {
+                Debug.LogError("Audio nicht gefunden oder konnte nicht geladen werden: " + audioPath);
+            }
+        }
+    }
     
     private void ShowPosition(string positionId)
     {
@@ -278,22 +324,13 @@ public class SkyBoxManager : MonoBehaviour
         // Übergabe des geladenen Ziel-Panromas an den Shader an die SkyBox
         skyboxMaterial.SetFloat("_Blend", 0f);
 
+        // NEU: Passendes Audio zur neuen Position laden und im Loop abspielen
+        StartCoroutine(LoadAndPlayAudio(currentPosition));
+        
         // Debugging: Ausgabe der aktuellen Position
         Debug.Log($"Position {currentPosition} geladen.");
     }
-    
-    // ==============================
-    // Methode: Überprüfung, ob die Kamera sich innerhalb des zulässigen Bereichs befindet.
-    // (Liegt der Kamerawinkel innerhalb von ±hotspotTolerance, gilt das Ziel als sichtbar.)
-    // ==============================
 
-    /* private bool IsTargetVisible()
-    {
-        
-        float cameraAngle = Mathf.DeltaAngle(0f, cameraTransform.eulerAngles.y);
-        
-        return Mathf.Abs(cameraAngle) <= hotspotTolerance;
-    }*/
 
     // ==============================
     // Methode: Durchläuft alle erreichbaren Zielpositionen und bestimmt,
@@ -350,17 +387,6 @@ public class SkyBoxManager : MonoBehaviour
             skyboxMaterial.SetTexture("_Tex2", targetPanorama);
             previousTarget = selectedTarget;
         }
-
-        // -----------------------------
-        // Debugging
-        // -----------------------------
-
-        Debug.Log(
-            $"{selectedTarget.id1}->{selectedTarget.id2}" +
-            $"  Kamera={cameraAngle}" +
-            $"  rotate1={selectedTarget.rotate1}" +
-            $"  diff={smallestDifference}"
-        );
     }
     
     private IEnumerator InitializePositionData()
